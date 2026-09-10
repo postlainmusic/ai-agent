@@ -28,7 +28,6 @@ import androidx.compose.ui.viewinterop.AndroidView
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import org.json.JSONArray
 import org.json.JSONObject
 import java.net.HttpURLConnection
 import java.net.URLEncoder
@@ -72,23 +71,37 @@ private fun AntigravityApp() {
     fun saveFile(text: String) { scope.launch { if (selected.isNotBlank()) { writeFile(selected, text); content = text } } }
 
     LaunchedEffect(Unit) { refresh("") }
+
     MaterialTheme(colorScheme = darkColorScheme(background = Ink, surface = Panel, primary = Violet)) {
-        Column(Modifier.fillMaxSize().background(Ink).windowInsetsPadding(WindowInsets.safeDrawing)) {
-            TopBar(bridge = true, onRefresh = { refresh() })
+        Column(
+            Modifier.fillMaxSize().background(Ink).windowInsetsPadding(WindowInsets.safeDrawing)
+        ) {
+            TopBar(onRefresh = { refresh() })
             Row(Modifier.weight(1f).fillMaxWidth()) {
-                if (tab == 0) FileRail(currentDir, files, selected, { path, dir -> if (dir) refresh(path) else openFile(path) }, { refresh(currentDir) })
+                if (tab == 0) {
+                    FileRail(currentDir, files, selected,
+                        onOpen = { path, dir -> if (dir) refresh(path) else openFile(path) },
+                        refresh = { refresh(currentDir) })
+                }
                 Box(Modifier.weight(1f).fillMaxHeight()) {
                     when (tab) {
                         1 -> AgentPanel(agentInput, { agentInput = it }, agentOutput, busy) {
-                            if (busy || agentInput.isBlank()) return@AgentPanel
-                            busy = true; scope.launch { agentOutput = runAgent(agentInput); busy = false }
+                            if (!busy && agentInput.isNotBlank()) {
+                                busy = true
+                                scope.launch { agentOutput = runAgent(agentInput); busy = false }
+                            }
                         }
                         2 -> TerminalPanel(terminalInput, { terminalInput = it }, terminalOutput, busy) {
-                            if (busy || terminalInput.isBlank()) return@TerminalPanel
-                            busy = true; scope.launch { terminalOutput = runTerminal(terminalInput); terminalInput = ""; busy = false }
+                            if (!busy && terminalInput.isNotBlank()) {
+                                busy = true
+                                scope.launch { terminalOutput = runTerminal(terminalInput); terminalInput = ""; busy = false }
+                            }
                         }
                         3 -> RunPanel(busy) {
-                            busy = true; scope.launch { terminalOutput = runBuild(); tab = 2; busy = false }
+                            if (!busy) {
+                                busy = true
+                                scope.launch { terminalOutput = runBuild(); tab = 2; busy = false }
+                            }
                         }
                         else -> Editor(selected, content, { saveFile(it) })
                     }
@@ -100,75 +113,231 @@ private fun AntigravityApp() {
 }
 
 @Composable
-private fun TopBar(bridge: Boolean, onRefresh: () -> Unit) {
-    Row(Modifier.fillMaxWidth().height(58.dp).background(Panel).padding(horizontal = 14.dp), verticalAlignment = Alignment.CenterVertically) {
-        Box(Modifier.size(30.dp).background(Violet, RoundedCornerShape(9.dp)), contentAlignment = Alignment.Center) { Text("✦", color = Ink, fontSize = 18.sp) }
-        Spacer(Modifier.width(11.dp)); Column(Modifier.weight(1f)) { Text("Antigravity", color = Txt, fontSize = 15.sp); Text(if (bridge) "workspace connected" else "offline", color = if (bridge) Cyan else Muted, fontSize = 10.sp) }
+private fun TopBar(onRefresh: () -> Unit) {
+    Row(
+        Modifier.fillMaxWidth().height(58.dp).background(Panel).padding(horizontal = 14.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Box(Modifier.size(30.dp).background(Violet, RoundedCornerShape(9.dp)), contentAlignment = Alignment.Center) {
+            Text("✦", color = Ink, fontSize = 18.sp)
+        }
+        Spacer(Modifier.width(11.dp))
+        Column(Modifier.weight(1f)) {
+            Text("Antigravity", color = Txt, fontSize = 15.sp)
+            Text("workspace connected", color = Cyan, fontSize = 10.sp)
+        }
         IconButton(onClick = onRefresh) { Icon(Icons.Default.Refresh, null, tint = Muted) }
     }
 }
 
 @Composable
-private fun FileRail(dir: String, files: List<FsItem>, selected: String, onOpen: (String, Boolean) -> Unit, refresh: () -> Unit) {
+private fun FileRail(
+    dir: String,
+    files: List<FsItem>,
+    selected: String,
+    onOpen: (String, Boolean) -> Unit,
+    refresh: () -> Unit
+) {
     Column(Modifier.width(190.dp).fillMaxHeight().background(Rail).padding(vertical = 10.dp)) {
         Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp), verticalAlignment = Alignment.CenterVertically) {
             Text(if (dir.isBlank()) "PROJECT" else dir, color = Muted, fontSize = 9.sp, modifier = Modifier.weight(1f))
-            IconButton(onClick = refresh, modifier = Modifier.size(28.dp)) { Icon(Icons.Default.Refresh, null, tint = Muted, modifier = Modifier.size(15.dp)) }
-        }
-        if (dir.isNotBlank()) Row(Modifier.fillMaxWidth().clickable { onOpen(dir.substringBeforeLast('/', ""), true) }.padding(12.dp)) { Text("‹  Parent", color = Muted, fontSize = 11.sp) }
-        LazyColumn { items(files, key = { it.path }) { f ->
-            val active = f.path == selected
-            Row(Modifier.fillMaxWidth().height(36.dp).background(if (active) Color(0xFF1B1E27) else Color.Transparent).clickable { onOpen(f.path, f.directory) }.padding(horizontal = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-                Icon(if (f.directory) Icons.Default.Folder else Icons.Default.Description, null, tint = if (active) Violet else Muted, modifier = Modifier.size(16.dp)); Spacer(Modifier.width(8.dp)); Text(f.name, color = if (active) Txt else Muted, fontSize = 12.sp, maxLines = 1)
+            IconButton(onClick = refresh, modifier = Modifier.size(28.dp)) {
+                Icon(Icons.Default.Refresh, null, tint = Muted, modifier = Modifier.size(15.dp))
             }
-        } }
+        }
+        if (dir.isNotBlank()) {
+            Row(Modifier.fillMaxWidth().clickable { onOpen(dir.substringBeforeLast('/', ""), true) }.padding(12.dp)) {
+                Text("‹  Parent", color = Muted, fontSize = 11.sp)
+            }
+        }
+        LazyColumn {
+            items(files, key = { it.path }) { f ->
+                val active = f.path == selected
+                Row(
+                    Modifier.fillMaxWidth().height(36.dp)
+                        .background(if (active) Color(0xFF1B1E27) else Color.Transparent)
+                        .clickable { onOpen(f.path, f.directory) }
+                        .padding(horizontal = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        if (f.directory) Icons.Default.Folder else Icons.Default.Description,
+                        null,
+                        tint = if (active) Violet else Muted,
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Spacer(Modifier.width(8.dp))
+                    Text(f.name, color = if (active) Txt else Muted, fontSize = 12.sp, maxLines = 1)
+                }
+            }
+        }
     }
 }
 
 @SuppressLint("SetJavaScriptEnabled")
 @Composable
 private fun Editor(file: String, text: String, onSave: (String) -> Unit) {
+    var webViewRef by remember { mutableStateOf<WebView?>(null) }
     Column(Modifier.fillMaxSize().background(Ink)) {
-        Row(Modifier.fillMaxWidth().height(40.dp).background(Panel).padding(start = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-            Text(if (file.isBlank()) "No file selected" else file, color = Txt, fontSize = 12.sp); Spacer(Modifier.weight(1f)); Text("Ctrl+S", color = Muted, fontSize = 9.sp); IconButton(onClick = {}, modifier = Modifier.size(36.dp)) { Icon(Icons.Default.Save, null, tint = Cyan, modifier = Modifier.size(18.dp)) }
+        Row(
+            Modifier.fillMaxWidth().height(40.dp).background(Panel).padding(start = 12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(if (file.isBlank()) "No file selected" else file, color = Txt, fontSize = 12.sp)
+            Spacer(Modifier.weight(1f))
+            Text("Ctrl+S", color = Muted, fontSize = 9.sp)
+            IconButton(onClick = { webViewRef?.evaluateJavascript("window.saveEditorContent();", null) }, modifier = Modifier.size(36.dp)) {
+                Icon(Icons.Default.Save, null, tint = Cyan, modifier = Modifier.size(18.dp))
+            }
         }
         HorizontalDivider(color = Line)
-        AndroidView(Modifier.fillMaxSize(), factory = { context ->
-            WebView(context).apply { settings.javaScriptEnabled = true; settings.domStorageEnabled = true; settings.allowFileAccess = true; webViewClient = WebViewClient(); webChromeClient = WebChromeClient(); addJavascriptInterface(object { @JavascriptInterface fun save(value: String) { onSave(value) } }, "Native"); loadUrl("file:///android_asset/editor.html") }
-        }, update = { web -> web.post { web.evaluateJavascript("window.setEditorContent(${JSONObject.quote(text)});", null) } })
+        AndroidView(
+            modifier = Modifier.fillMaxSize(),
+            factory = { context ->
+                WebView(context).apply {
+                    webViewRef = this
+                    settings.javaScriptEnabled = true
+                    settings.domStorageEnabled = true
+                    settings.allowFileAccess = true
+                    webViewClient = WebViewClient()
+                    webChromeClient = WebChromeClient()
+                    addJavascriptInterface(object {
+                        @JavascriptInterface
+                        fun save(value: String) { onSave(value) }
+                    }, "Native")
+                    loadUrl("file:///android_asset/editor.html")
+                }
+            },
+            update = { web ->
+                web.post { web.evaluateJavascript("window.setEditorContent(${JSONObject.quote(text)});", null) }
+            }
+        )
     }
 }
 
 @Composable
 private fun AgentPanel(input: String, onInput: (String) -> Unit, output: String, busy: Boolean, run: () -> Unit) {
-    Column(Modifier.fillMaxSize().padding(18.dp)) { Row(verticalAlignment = Alignment.CenterVertically) { Text("Agent", color = Txt, fontSize = 20.sp); Spacer(Modifier.width(8.dp)); Text(if (busy) "RUNNING" else "READY", color = if (busy) Cyan else Violet, fontSize = 9.sp) }; Text("Antigravity CLI · real project agent", color = Muted, fontSize = 11.sp); Spacer(Modifier.height(14.dp)); Surface(Modifier.fillMaxWidth().weight(1f), color = Panel, shape = RoundedCornerShape(14.dp)) { LazyColumn(Modifier.padding(16.dp)) { item { Text(output, color = Txt, fontSize = 12.sp) } } }; Spacer(Modifier.height(10.dp)); OutlinedTextField(input, onInput, Modifier.fillMaxWidth(), placeholder = { Text("Ask Antigravity to edit, fix or build…") }, minLines = 3); Spacer(Modifier.height(8.dp)); Button(run, enabled = !busy && input.isNotBlank(), Modifier.fillMaxWidth()) { Icon(Icons.Default.AutoAwesome, null, Modifier.size(17.dp)); Spacer(Modifier.width(7.dp)); Text(if (busy) "Running…" else "Run agent") } }
+    Column(Modifier.fillMaxSize().padding(18.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text("Agent", color = Txt, fontSize = 20.sp)
+            Spacer(Modifier.width(8.dp))
+            Text(if (busy) "RUNNING" else "READY", color = if (busy) Cyan else Violet, fontSize = 9.sp)
+        }
+        Text("Antigravity CLI · real project agent", color = Muted, fontSize = 11.sp)
+        Spacer(Modifier.height(14.dp))
+        Surface(Modifier.fillMaxWidth().weight(1f), color = Panel, shape = RoundedCornerShape(14.dp)) {
+            LazyColumn(Modifier.padding(16.dp)) { item { Text(output, color = Txt, fontSize = 12.sp) } }
+        }
+        Spacer(Modifier.height(10.dp))
+        OutlinedTextField(
+            value = input,
+            onValueChange = onInput,
+            modifier = Modifier.fillMaxWidth(),
+            placeholder = { Text("Ask Antigravity to edit, fix or build…") },
+            minLines = 3
+        )
+        Spacer(Modifier.height(8.dp))
+        Button(onClick = run, enabled = !busy && input.isNotBlank(), modifier = Modifier.fillMaxWidth()) {
+            Icon(Icons.Default.AutoAwesome, null, modifier = Modifier.size(17.dp))
+            Spacer(Modifier.width(7.dp))
+            Text(if (busy) "Running…" else "Run agent")
+        }
+    }
 }
 
 @Composable
 private fun TerminalPanel(input: String, onInput: (String) -> Unit, output: String, busy: Boolean, run: () -> Unit) {
-    Column(Modifier.fillMaxSize().background(Color(0xFF050609)).padding(14.dp)) { Text("Terminal", color = Txt, fontSize = 18.sp); Spacer(Modifier.height(10.dp)); Surface(Modifier.fillMaxWidth().weight(1f), color = Color(0xFF080A0E)) { LazyColumn(Modifier.padding(12.dp)) { item { Text(output.ifBlank { "Connected terminal\n" }, color = Color(0xFFB7BECF), fontSize = 12.sp) } } }; Spacer(Modifier.height(8.dp)); Row(verticalAlignment = Alignment.CenterVertically) { Text("$", color = Violet, fontSize = 13.sp); Spacer(Modifier.width(6.dp)); OutlinedTextField(input, onInput, Modifier.weight(1f), singleLine = true, enabled = !busy); IconButton(onClick = run, enabled = !busy && input.isNotBlank()) { Icon(Icons.Default.Send, null, tint = Cyan) } } }
+    Column(Modifier.fillMaxSize().background(Color(0xFF050609)).padding(14.dp)) {
+        Text("Terminal", color = Txt, fontSize = 18.sp)
+        Spacer(Modifier.height(10.dp))
+        Surface(Modifier.fillMaxWidth().weight(1f), color = Color(0xFF080A0E)) {
+            LazyColumn(Modifier.padding(12.dp)) {
+                item { Text(output.ifBlank { "Connected terminal\n" }, color = Color(0xFFB7BECF), fontSize = 12.sp) }
+            }
+        }
+        Spacer(Modifier.height(8.dp))
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text("$", color = Violet, fontSize = 13.sp)
+            Spacer(Modifier.width(6.dp))
+            OutlinedTextField(value = input, onValueChange = onInput, modifier = Modifier.weight(1f), singleLine = true, enabled = !busy)
+            IconButton(onClick = run, enabled = !busy && input.isNotBlank()) {
+                Icon(Icons.Default.Send, null, tint = Cyan)
+            }
+        }
+    }
 }
 
 @Composable
 private fun RunPanel(busy: Boolean, run: () -> Unit) {
-    Column(Modifier.fillMaxSize().padding(22.dp)) { Text("Build & Run", color = Txt, fontSize = 22.sp); Text("Run the project from the same workspace used by agy.", color = Muted, fontSize = 12.sp); Spacer(Modifier.height(22.dp)); Button(run, enabled = !busy, Modifier.fillMaxWidth()) { Icon(Icons.Default.Build, null); Spacer(Modifier.width(8.dp)); Text(if (busy) "Building…" else "Build debug APK") } }
+    Column(Modifier.fillMaxSize().padding(22.dp)) {
+        Text("Build & Run", color = Txt, fontSize = 22.sp)
+        Text("Run the project from the same workspace used by agy.", color = Muted, fontSize = 12.sp)
+        Spacer(Modifier.height(22.dp))
+        Button(onClick = run, enabled = !busy, modifier = Modifier.fillMaxWidth()) {
+            Icon(Icons.Default.Build, null)
+            Spacer(Modifier.width(8.dp))
+            Text(if (busy) "Building…" else "Build debug APK")
+        }
+    }
 }
 
 @Composable
 private fun BottomDock(selected: Int, onSelect: (Int) -> Unit) {
-    val items = listOf(Icons.Default.Folder to "Files", Icons.Default.AutoAwesome to "Agent", Icons.Default.Terminal to "Terminal", Icons.Default.PlayArrow to "Run")
-    Row(Modifier.fillMaxWidth().height(62.dp).background(Panel), horizontalArrangement = Arrangement.SpaceEvenly) { items.forEachIndexed { i, p -> Column(Modifier.weight(1f).fillMaxHeight().clickable { onSelect(i) }, horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) { Icon(p.first, null, tint = if (selected == i) Violet else Muted, Modifier.size(20.dp)); Text(p.second, color = if (selected == i) Txt else Muted, fontSize = 9.sp) } } }
+    val items = listOf(
+        Icons.Default.Folder to "Files",
+        Icons.Default.AutoAwesome to "Agent",
+        Icons.Default.Terminal to "Terminal",
+        Icons.Default.PlayArrow to "Run"
+    )
+    Row(Modifier.fillMaxWidth().height(62.dp).background(Panel), horizontalArrangement = Arrangement.SpaceEvenly) {
+        items.forEachIndexed { i, item ->
+            Column(
+                Modifier.weight(1f).fillMaxHeight().clickable { onSelect(i) },
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center
+            ) {
+                Icon(item.first, null, tint = if (selected == i) Violet else Muted, modifier = Modifier.size(20.dp))
+                Text(item.second, color = if (selected == i) Txt else Muted, fontSize = 9.sp)
+            }
+        }
+    }
 }
 
 private suspend fun http(path: String, method: String = "GET", body: JSONObject? = null): JSONObject = withContext(Dispatchers.IO) {
-    val c = (URL("http://127.0.0.1:8765$path").openConnection() as HttpURLConnection).apply { requestMethod = method; connectTimeout = 4000; readTimeout = 900000; if (body != null) { doOutput = true; setRequestProperty("Content-Type", "application/json") } }
+    val c = (URL("http://127.0.0.1:8765$path").openConnection() as HttpURLConnection).apply {
+        requestMethod = method
+        connectTimeout = 4000
+        readTimeout = 900000
+        if (body != null) { doOutput = true; setRequestProperty("Content-Type", "application/json") }
+    }
     if (body != null) c.outputStream.use { it.write(body.toString().toByteArray()) }
-    val raw = (if (c.responseCode in 200..299) c.inputStream else c.errorStream).bufferedReader().readText(); if (c.responseCode !in 200..299) throw Exception("HTTP ${c.responseCode}: $raw"); JSONObject(raw)
+    val raw = (if (c.responseCode in 200..299) c.inputStream else c.errorStream).bufferedReader().readText()
+    if (c.responseCode !in 200..299) throw Exception("HTTP ${c.responseCode}: $raw")
+    JSONObject(raw)
 }
 
-private suspend fun listFiles(path: String): List<FsItem> = try { val q = URLEncoder.encode(path, "UTF-8"); val a = http("/files?path=$q").getJSONArray("items"); List(a.length()) { val o = a.getJSONObject(it); FsItem(o.getString("name"), o.getString("path"), o.getBoolean("directory")) } } catch (_: Exception) { emptyList() }
-private suspend fun readFile(path: String): String = try { http("/read?path=${URLEncoder.encode(path, "UTF-8")}").getString("content") } catch (e: Exception) { "// ${e.message}" }
-private suspend fun writeFile(path: String, content: String) { try { http("/write", "POST", JSONObject().put("path", path).put("content", content)) } catch (_: Exception) {} }
-private suspend fun runAgent(prompt: String): String = try { val o = http("/run", "POST", JSONObject().put("prompt", prompt)); o.optString("stdout").ifBlank { o.optString("stderr") } } catch (e: Exception) { "Bridge unavailable: ${e.message}\nStart: python bridge/agy_bridge.py" }
-private suspend fun runTerminal(command: String): String = try { val o = http("/terminal", "POST", JSONObject().put("command", command)); (o.optString("stdout") + if (o.optString("stderr").isNotBlank()) "\n" + o.optString("stderr") else "").ifBlank { "exit ${o.optInt("exitCode")}" } } catch (e: Exception) { "Terminal error: ${e.message}" }
+private suspend fun listFiles(path: String): List<FsItem> = try {
+    val q = URLEncoder.encode(path, "UTF-8")
+    val a = http("/files?path=$q").getJSONArray("items")
+    List(a.length()) { val o = a.getJSONObject(it); FsItem(o.getString("name"), o.getString("path"), o.getBoolean("directory")) }
+} catch (_: Exception) { emptyList() }
+
+private suspend fun readFile(path: String): String = try {
+    http("/read?path=${URLEncoder.encode(path, "UTF-8')}").getString("content")
+} catch (e: Exception) { "// ${e.message}" }
+
+private suspend fun writeFile(path: String, content: String) {
+    try { http("/write", "POST", JSONObject().put("path", path).put("content", content)) } catch (_: Exception) {}
+}
+
+private suspend fun runAgent(prompt: String): String = try {
+    val o = http("/run", "POST", JSONObject().put("prompt", prompt))
+    o.optString("stdout").ifBlank { o.optString("stderr") }
+} catch (e: Exception) { "Bridge unavailable: ${e.message}\nStart: python bridge/agy_bridge.py" }
+
+private suspend fun runTerminal(command: String): String = try {
+    val o = http("/terminal", "POST", JSONObject().put("command", command))
+    (o.optString("stdout") + if (o.optString("stderr").isNotBlank()) "\n${o.optString("stderr")}" else "").ifBlank { "exit ${o.optInt("exitCode")}" }
+} catch (e: Exception) { "Terminal error: ${e.message}" }
+
 private suspend fun runBuild(): String = runTerminal("./gradlew assembleDebug")
