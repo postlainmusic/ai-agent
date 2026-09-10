@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "AI-AGENT Task",
+  "type": "object",
+  "required": ["id", "goal", "success_criteria"],
+  "properties": {
+    "id": {"type": "string", "pattern": "^[A-Za-z0-9._-]+$"},
+    "goal": {"type": "string", "minLength": 1},
+    "context": {"type": "string"},
+    "success_criteria": {"type": "array", "items": {"type": "string"}, "minItems": 1},
+    "constraints": {"type": "array", "items": {"type": "string"}},
+    "max_runtime_minutes": {"type": "integer", "minimum": 1, "maximum": 30}
+  },
+  "additionalProperties": false
+}
