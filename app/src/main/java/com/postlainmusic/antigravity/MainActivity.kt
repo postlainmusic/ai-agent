@@ -73,9 +73,7 @@ private fun AntigravityApp() {
     LaunchedEffect(Unit) { refresh("") }
 
     MaterialTheme(colorScheme = darkColorScheme(background = Ink, surface = Panel, primary = Violet)) {
-        Column(
-            Modifier.fillMaxSize().background(Ink).windowInsetsPadding(WindowInsets.safeDrawing)
-        ) {
+        Column(Modifier.fillMaxSize().background(Ink).windowInsetsPadding(WindowInsets.safeDrawing)) {
             TopBar(onRefresh = { refresh() })
             Row(Modifier.weight(1f).fillMaxWidth()) {
                 if (tab == 0) {
@@ -114,13 +112,8 @@ private fun AntigravityApp() {
 
 @Composable
 private fun TopBar(onRefresh: () -> Unit) {
-    Row(
-        Modifier.fillMaxWidth().height(58.dp).background(Panel).padding(horizontal = 14.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Box(Modifier.size(30.dp).background(Violet, RoundedCornerShape(9.dp)), contentAlignment = Alignment.Center) {
-            Text("✦", color = Ink, fontSize = 18.sp)
-        }
+    Row(Modifier.fillMaxWidth().height(58.dp).background(Panel).padding(horizontal = 14.dp), verticalAlignment = Alignment.CenterVertically) {
+        Box(Modifier.size(30.dp).background(Violet, RoundedCornerShape(9.dp)), contentAlignment = Alignment.Center) { Text("✦", color = Ink, fontSize = 18.sp) }
         Spacer(Modifier.width(11.dp))
         Column(Modifier.weight(1f)) {
             Text("Antigravity", color = Txt, fontSize = 15.sp)
@@ -131,41 +124,20 @@ private fun TopBar(onRefresh: () -> Unit) {
 }
 
 @Composable
-private fun FileRail(
-    dir: String,
-    files: List<FsItem>,
-    selected: String,
-    onOpen: (String, Boolean) -> Unit,
-    refresh: () -> Unit
-) {
+private fun FileRail(dir: String, files: List<FsItem>, selected: String, onOpen: (String, Boolean) -> Unit, refresh: () -> Unit) {
     Column(Modifier.width(190.dp).fillMaxHeight().background(Rail).padding(vertical = 10.dp)) {
         Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp), verticalAlignment = Alignment.CenterVertically) {
             Text(if (dir.isBlank()) "PROJECT" else dir, color = Muted, fontSize = 9.sp, modifier = Modifier.weight(1f))
-            IconButton(onClick = refresh, modifier = Modifier.size(28.dp)) {
-                Icon(Icons.Default.Refresh, null, tint = Muted, modifier = Modifier.size(15.dp))
-            }
+            IconButton(onClick = refresh, modifier = Modifier.size(28.dp)) { Icon(Icons.Default.Refresh, null, tint = Muted, modifier = Modifier.size(15.dp)) }
         }
         if (dir.isNotBlank()) {
-            Row(Modifier.fillMaxWidth().clickable { onOpen(dir.substringBeforeLast('/', ""), true) }.padding(12.dp)) {
-                Text("‹  Parent", color = Muted, fontSize = 11.sp)
-            }
+            Row(Modifier.fillMaxWidth().clickable { onOpen(dir.substringBeforeLast('/', ""), true) }.padding(12.dp)) { Text("‹  Parent", color = Muted, fontSize = 11.sp) }
         }
         LazyColumn {
             items(files, key = { it.path }) { f ->
                 val active = f.path == selected
-                Row(
-                    Modifier.fillMaxWidth().height(36.dp)
-                        .background(if (active) Color(0xFF1B1E27) else Color.Transparent)
-                        .clickable { onOpen(f.path, f.directory) }
-                        .padding(horizontal = 12.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Icon(
-                        if (f.directory) Icons.Default.Folder else Icons.Default.Description,
-                        null,
-                        tint = if (active) Violet else Muted,
-                        modifier = Modifier.size(16.dp)
-                    )
+                Row(Modifier.fillMaxWidth().height(36.dp).background(if (active) Color(0xFF1B1E27) else Color.Transparent).clickable { onOpen(f.path, f.directory) }.padding(horizontal = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Icon(if (f.directory) Icons.Default.Folder else Icons.Default.Description, null, tint = if (active) Violet else Muted, modifier = Modifier.size(16.dp))
                     Spacer(Modifier.width(8.dp))
                     Text(f.name, color = if (active) Txt else Muted, fontSize = 12.sp, maxLines = 1)
                 }
@@ -179,16 +151,11 @@ private fun FileRail(
 private fun Editor(file: String, text: String, onSave: (String) -> Unit) {
     var webViewRef by remember { mutableStateOf<WebView?>(null) }
     Column(Modifier.fillMaxSize().background(Ink)) {
-        Row(
-            Modifier.fillMaxWidth().height(40.dp).background(Panel).padding(start = 12.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
+        Row(Modifier.fillMaxWidth().height(40.dp).background(Panel).padding(start = 12.dp), verticalAlignment = Alignment.CenterVertically) {
             Text(if (file.isBlank()) "No file selected" else file, color = Txt, fontSize = 12.sp)
             Spacer(Modifier.weight(1f))
             Text("Ctrl+S", color = Muted, fontSize = 9.sp)
-            IconButton(onClick = { webViewRef?.evaluateJavascript("window.saveEditorContent();", null) }, modifier = Modifier.size(36.dp)) {
-                Icon(Icons.Default.Save, null, tint = Cyan, modifier = Modifier.size(18.dp))
-            }
+            IconButton(onClick = { webViewRef?.evaluateJavascript("window.saveEditorContent();", null) }, modifier = Modifier.size(36.dp)) { Icon(Icons.Default.Save, null, tint = Cyan, modifier = Modifier.size(18.dp)) }
         }
         HorizontalDivider(color = Line)
         AndroidView(
@@ -202,15 +169,12 @@ private fun Editor(file: String, text: String, onSave: (String) -> Unit) {
                     webViewClient = WebViewClient()
                     webChromeClient = WebChromeClient()
                     addJavascriptInterface(object {
-                        @JavascriptInterface
-                        fun save(value: String) { onSave(value) }
+                        @JavascriptInterface fun save(value: String) { onSave(value) }
                     }, "Native")
                     loadUrl("file:///android_asset/editor.html")
                 }
             },
-            update = { web ->
-                web.post { web.evaluateJavascript("window.setEditorContent(${JSONObject.quote(text)});", null) }
-            }
+            update = { web -> web.post { web.evaluateJavascript("window.setEditorContent(${JSONObject.quote(text)});", null) } }
         )
     }
 }
@@ -229,13 +193,7 @@ private fun AgentPanel(input: String, onInput: (String) -> Unit, output: String,
             LazyColumn(Modifier.padding(16.dp)) { item { Text(output, color = Txt, fontSize = 12.sp) } }
         }
         Spacer(Modifier.height(10.dp))
-        OutlinedTextField(
-            value = input,
-            onValueChange = onInput,
-            modifier = Modifier.fillMaxWidth(),
-            placeholder = { Text("Ask Antigravity to edit, fix or build…") },
-            minLines = 3
-        )
+        OutlinedTextField(value = input, onValueChange = onInput, modifier = Modifier.fillMaxWidth(), placeholder = { Text("Ask Antigravity to edit, fix or build…") }, minLines = 3)
         Spacer(Modifier.height(8.dp))
         Button(onClick = run, enabled = !busy && input.isNotBlank(), modifier = Modifier.fillMaxWidth()) {
             Icon(Icons.Default.AutoAwesome, null, modifier = Modifier.size(17.dp))
@@ -251,18 +209,14 @@ private fun TerminalPanel(input: String, onInput: (String) -> Unit, output: Stri
         Text("Terminal", color = Txt, fontSize = 18.sp)
         Spacer(Modifier.height(10.dp))
         Surface(Modifier.fillMaxWidth().weight(1f), color = Color(0xFF080A0E)) {
-            LazyColumn(Modifier.padding(12.dp)) {
-                item { Text(output.ifBlank { "Connected terminal\n" }, color = Color(0xFFB7BECF), fontSize = 12.sp) }
-            }
+            LazyColumn(Modifier.padding(12.dp)) { item { Text(output.ifBlank { "Connected terminal\n" }, color = Color(0xFFB7BECF), fontSize = 12.sp) } }
         }
         Spacer(Modifier.height(8.dp))
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text("$", color = Violet, fontSize = 13.sp)
             Spacer(Modifier.width(6.dp))
             OutlinedTextField(value = input, onValueChange = onInput, modifier = Modifier.weight(1f), singleLine = true, enabled = !busy)
-            IconButton(onClick = run, enabled = !busy && input.isNotBlank()) {
-                Icon(Icons.Default.Send, null, tint = Cyan)
-            }
+            IconButton(onClick = run, enabled = !busy && input.isNotBlank()) { Icon(Icons.Default.Send, null, tint = Cyan) }
         }
     }
 }
@@ -283,19 +237,10 @@ private fun RunPanel(busy: Boolean, run: () -> Unit) {
 
 @Composable
 private fun BottomDock(selected: Int, onSelect: (Int) -> Unit) {
-    val items = listOf(
-        Icons.Default.Folder to "Files",
-        Icons.Default.AutoAwesome to "Agent",
-        Icons.Default.Terminal to "Terminal",
-        Icons.Default.PlayArrow to "Run"
-    )
+    val items = listOf(Icons.Default.Folder to "Files", Icons.Default.AutoAwesome to "Agent", Icons.Default.Terminal to "Terminal", Icons.Default.PlayArrow to "Run")
     Row(Modifier.fillMaxWidth().height(62.dp).background(Panel), horizontalArrangement = Arrangement.SpaceEvenly) {
         items.forEachIndexed { i, item ->
-            Column(
-                Modifier.weight(1f).fillMaxHeight().clickable { onSelect(i) },
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.Center
-            ) {
+            Column(Modifier.weight(1f).fillMaxHeight().clickable { onSelect(i) }, horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
                 Icon(item.first, null, tint = if (selected == i) Violet else Muted, modifier = Modifier.size(20.dp))
                 Text(item.second, color = if (selected == i) Txt else Muted, fontSize = 9.sp)
             }
@@ -323,7 +268,8 @@ private suspend fun listFiles(path: String): List<FsItem> = try {
 } catch (_: Exception) { emptyList() }
 
 private suspend fun readFile(path: String): String = try {
-    http("/read?path=${URLEncoder.encode(path, "UTF-8')}").getString("content")
+    val q = URLEncoder.encode(path, "UTF-8")
+    http("/read?path=$q").getString("content")
 } catch (e: Exception) { "// ${e.message}" }
 
 private suspend fun writeFile(path: String, content: String) {
