@@ -1,0 +1,12 @@
+{
+  "id": "SMOKE-001",
+  "goal": "Verify that Google Antigravity can execute a task inside GitHub Actions and return a structured result.",
+  "prompt": "This is a smoke test for the AI-AGENT executor. Inspect the repository workspace without making destructive changes. Confirm that you can read the repository files and report what the worker is intended to do. Do not modify source files, install additional software, or run commands that change the repository.",
+  "success_criteria": [
+    "Antigravity starts successfully",
+    "The agent can inspect the repository workspace",
+    "A result is written for task SMOKE-001",
+    "The result clearly states whether the smoke test passed"
+  ],
+  "max_iterations": 1
+}
