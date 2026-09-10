@@ -1,14 +1,14 @@
-import asyncio
 import json
 import os
+import urllib.error
+import urllib.request
 from pathlib import Path
 from typing import Any
-
-from google.antigravity import Agent, LocalAgentConfig
 
 ROOT = Path(__file__).resolve().parent
 INBOX = ROOT / "tasks" / "inbox"
 RESULTS = ROOT / "tasks" / "results"
+OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
 
 
 def load_task() -> dict[str, Any]:
@@ -51,34 +51,62 @@ At the end, report:
 """
 
 
-async def run() -> None:
-    if not os.environ.get("GEMINI_API_KEY"):
-        raise RuntimeError("GEMINI_API_KEY is not configured")
+def call_openrouter(prompt: str) -> str:
+    api_key = os.environ.get("OPENROUTER_API_KEY")
+    if not api_key:
+        raise RuntimeError("OPENROUTER_API_KEY is not configured")
 
-    task = load_task()
-    prompt = build_prompt(task)
-
-    config = LocalAgentConfig(
-        system_instructions=(
-            "You are a careful software execution agent. "
-            "Follow the task exactly, minimize unnecessary changes, "
-            "and never print secrets."
-        )
-    )
-
-    async with Agent(config) as agent:
-        response = await agent.chat(prompt)
-        text = await response.text()
-
-    result = {
-        "task_id": task["id"],
-        "status": "completed",
-        "summary": text,
-        "changes": [],
-        "tests": [],
-        "error": None,
+    payload = {
+        "model": "openrouter/free",
+        "messages": [
+            {
+                "role": "system",
+                "content": (
+                    "You are a careful software execution agent. "
+                    "Follow the task exactly, minimize unnecessary changes, "
+                    "and never print secrets."
+                ),
+            },
+            {"role": "user", "content": prompt},
+        ],
     }
 
+    request = urllib.request.Request(
+        OPENROUTER_URL,
+        data=json.dumps(payload).encode("utf-8"),
+        headers={
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json",
+            "HTTP-Referer": "https://github.com/postlainmusic/AI-AGENT",
+            "X-Title": "AI-AGENT",
+        },
+        method="POST",
+    )
+
+    try:
+        with urllib.request.urlopen(request, timeout=120) as response:
+            data = json.loads(response.read().decode("utf-8"))
+    except urllib.error.HTTPError as exc:
+        body = exc.read().decode("utf-8", errors="replace")
+        raise RuntimeError(f"OpenRouter HTTP {exc.code}: {body[:500]}") from exc
+    except urllib.error.URLError as exc:
+        raise RuntimeError(f"OpenRouter connection error: {exc.reason}") from exc
+
+    try:
+        return data["choices"][0]["message"]["content"]
+    except (KeyError, IndexError, TypeError) as exc:
+        raise RuntimeError(f"Unexpected OpenRouter response: {json.dumps(data)[:500]}") from exc
+
+
+def write_result(task: dict[str, Any], status: str, summary: str, error: str | None = None) -> None:
+    result = {
+        "task_id": task["id"],
+        "status": status,
+        "summary": summary,
+        "changes": [],
+        "tests": [],
+        "error": error,
+    }
     RESULTS.mkdir(parents=True, exist_ok=True)
     output = RESULTS / f"{task['id']}.json"
     with output.open("w", encoding="utf-8") as f:
@@ -86,5 +114,16 @@ async def run() -> None:
         f.write("\n")
 
 
+def run() -> None:
+    task = load_task()
+    prompt = build_prompt(task)
+    try:
+        text = call_openrouter(prompt)
+        write_result(task, "completed", text)
+    except Exception as exc:
+        write_result(task, "failed", "OpenRouter execution failed.", str(exc))
+        raise
+
+
 if __name__ == "__main__":
-    asyncio.run(run())
+    run()
