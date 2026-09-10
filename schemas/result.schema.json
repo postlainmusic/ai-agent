@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "AI-AGENT Result",
+  "type": "object",
+  "required": ["task_id", "status", "summary"],
+  "properties": {
+    "task_id": {"type": "string"},
+    "status": {"enum": ["completed", "failed", "blocked", "needs_review"]},
+    "summary": {"type": "string"},
+    "changes": {"type": "array", "items": {"type": "string"}},
+    "tests": {"type": "array", "items": {"type": "string"}},
+    "error": {"type": ["string", "null"]}
+  },
+  "additionalProperties": false
+}
