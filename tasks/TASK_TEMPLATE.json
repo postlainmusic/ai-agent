@@ -1,0 +1,14 @@
+{
+  "id": "example-001",
+  "goal": "Describe the repository architecture and identify the first implementation risk.",
+  "context": "This is a test task for AI-AGENT.",
+  "success_criteria": [
+    "Inspect the repository.",
+    "Return a concise architecture summary.",
+    "Identify at least one concrete risk."
+  ],
+  "constraints": [
+    "Do not modify files for this first test."
+  ],
+  "max_runtime_minutes": 10
+}
