@@ -1,0 +1,34 @@
+<!doctype html>
+<html>
+<head>
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<style>
+:root{--bg:#08090c;--text:#e8eaf0;--muted:#5f6675;--violet:#9b8cff;--cyan:#72d7ff;--line:#191c23}
+*{box-sizing:border-box}html,body{margin:0;height:100%;background:var(--bg);color:var(--text);overflow:hidden;font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+#editor{height:100%;overflow:auto;padding:16px 0 100px;font-size:13px;line-height:1.75;counter-reset:line;outline:none;white-space:pre;tab-size:4;-webkit-overflow-scrolling:touch}
+.line{display:block;min-height:23px;padding:0 16px 0 58px;position:relative}
+.line:before{counter-increment:line;content:counter(line,decimal-leading-zero);position:absolute;left:16px;width:27px;text-align:right;color:var(--muted);user-select:none}
+.kw{color:var(--violet)}.str{color:var(--cyan)}.cm{color:#596071}.fn{color:#d9cfff}
+#editor:focus .line:first-child:after{content:'';display:inline-block;height:18px;border-left:1px solid var(--violet);animation:blink 1s step-end infinite}@keyframes blink{50%{opacity:0}}
+</style></head>
+<body><div id="editor" contenteditable="true" spellcheck="false"></div>
+<script>
+const source=`package com.postlainmusic.antigravity
+
+class MainActivity : ComponentActivity() {
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        setContent {
+            AntigravityApp()
+        }
+    }
+}
+
+// Ask Antigravity to change this file.
+// The editor is intentionally touch-first.`;
+const esc=s=>s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+function paint(s){let x=esc(s);x=x.replace(/(\/\/.*)$/g,'<span class="cm">$1</span>');x=x.replace(/\b(class|override|fun|val|var|return|import|package|private)\b/g,'<span class="kw">$1</span>');x=x.replace(/("[^"\\]*(?:\\.[^"\\]*)*")/g,'<span class="str">$1</span>');return x}
+function render(text){document.getElementById('editor').innerHTML=text.split('\n').map(l=>`<span class="line">${paint(l)||' '}</span>`).join('')}
+render(source);
+document.getElementById('editor').addEventListener('keydown',e=>{if(e.key==='Tab'){e.preventDefault();document.execCommand('insertText',false,'    ')}});
+</script></body></html>
